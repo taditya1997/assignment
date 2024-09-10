@@ -1,5 +1,6 @@
 # Dependencies
-/node_modules
+/backend/school-api/node_modules
+/front-end/my-school-app/node_modules
 /.pnp
 .pnp.js
 
