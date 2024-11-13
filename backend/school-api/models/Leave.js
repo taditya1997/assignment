@@ -6,15 +6,30 @@ const leaveSchema = new mongoose.Schema({
     ref: 'Student',
     required: true
   },
-  reason: { type: String, required: true },
-  startDate: { type: Date, required: true },
-  endDate: { type: Date, required: true },
+  reason: {
+    type: String,
+    required: true
+  },
+  startDate: {
+    type: Date,
+    required: true
+  },
+  endDate: {
+    type: Date,
+    required: true
+  },
+  leaveType: {
+    type: String,
+    enum: ['single', 'multiple'],
+    required: true
+  },
   status: {
     type: String,
-    enum: ['Pending', 'Approved', 'Rejected'],
-    default: 'Pending'
-  },
-  createdAt: { type: Date, default: Date.now }
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending'
+  }
+}, {
+  timestamps: true
 });
 
 module.exports = mongoose.model('Leave', leaveSchema);

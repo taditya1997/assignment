@@ -1,38 +1,18 @@
-const { MongoClient, ServerApiVersion } = require('mongodb');
-require('dotenv').config();
+const mongoose = require('mongoose');
 
-console.log('MONGODB_URI:', process.env.MONGODB_URI); // Add this line
-
-const uri = process.env.MONGODB_URI;
-if (!uri) {
-  console.error('MONGODB_URI is not defined in the environment variables');
-  process.exit(1);
-}
-
-const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  }
-});
-
-let db;
-
-async function connectToDatabase() {
+const connectToDatabase = async () => {
   try {
-    await client.connect();
-    console.log("Connected to MongoDB!");
-    db = client.db("school_db"); // Replace with your database name
-    return db;
+    if (mongoose.connection.readyState === 1) {
+      return mongoose.connection;
+    }
+
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log('Connected to MongoDB!');
+    return mongoose.connection;
   } catch (error) {
-    console.error("Error connecting to MongoDB:", error);
-    process.exit(1);
+    console.error('MongoDB connection error:', error);
+    throw error;
   }
-}
+};
 
-function getDb() {
-  return db;
-}
-
-module.exports = { connectToDatabase, getDb, client };
+module.exports = { connectToDatabase };

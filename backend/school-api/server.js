@@ -3,11 +3,13 @@ const express = require('express');
 const cors = require('cors'); // Add this line
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { connectToDatabase, getDb } = require('./db');
+const mongoose = require('mongoose');
 const verifyToken = require('./middleware/auth');
 const leaveRoutes = require('./routes/leave');
 const studentRoutes = require('./routes/student');
 const authRoutes = require('./routes/auth');
+const { connectToDatabase } = require('./db');
+const User = require('./models/User');
 
 const app = express();
 
@@ -27,47 +29,43 @@ app.use('/api/auth', authRoutes);
 app.use('/api/students', verifyToken, studentRoutes);
 app.use('/api/leaves', verifyToken, leaveRoutes);
 
-// Connect to the database before starting the server
-connectToDatabase().then(() => {
-  // Start the server after successful database connection
+// Initialize database connection
+if (process.env.NODE_ENV !== 'test') {
+  connectToDatabase()
+    .then(() => {
+      console.log('Connected to MongoDB');
+    })
+    .catch(err => {
+      console.error('MongoDB connection error:', err);
+      process.exit(1);
+    });
+}
+
+// Don't start the server in test environment
+if (process.env.NODE_ENV !== 'test') {
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-}).catch(err => {
-  console.error('Failed to connect to the database', err);
-  process.exit(1);
-});
+}
+
+// Export for testing
+module.exports = app;
 
 // User Registration
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const db = getDb();
     const { username, password, email, role } = req.body;
-
-    // Check if user already exists
-    const existingUser = await db.collection('users').findOne({ $or: [{ username }, { email }] });
-    if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
-    }
-
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Create new user
-    const newUser = {
+    
+    // Use mongoose model directly
+    const user = await User.create({
       username,
-      password: hashedPassword,
+      password,
       email,
-      role: role || 'teacher',
-      refreshToken: null,
-      tokenCount: 0
-    };
-
-    const result = await db.collection('users').insertOne(newUser);
+      role
+    });
 
     res.status(201).json({ 
-      message: 'User registered successfully',
-      userId: result.insertedId
+      userId: user._id,
+      message: 'User registered successfully'
     });
   } catch (error) {
     console.error(error);
@@ -78,10 +76,9 @@ app.post('/api/auth/register', async (req, res) => {
 // User Login
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const db = getDb();
     const { username, password } = req.body;
     
-    const user = await db.collection('users').findOne({ username });
+    const user = await User.findOne({ username });
 
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
@@ -105,7 +102,7 @@ app.post('/api/auth/login', async (req, res) => {
     );
 
     // Update user's refresh token in the database
-    await db.collection('users').updateOne(
+    await User.updateOne(
       { _id: user._id },
       { $set: { refreshToken, tokenCount: 1 } }
     );
@@ -131,7 +128,7 @@ app.use((err, req, res, next) => {
 
 // If you need to close the connection when the server shuts down:
 process.on('SIGINT', async () => {
-  await client.close();
+  await mongoose.connection.close();
   console.log('MongoDB connection closed');
   process.exit(0);
 });
